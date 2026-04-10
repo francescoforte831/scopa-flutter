@@ -1,0 +1,30 @@
+name: scopa_flutter
+description: Classic Italian Scopa card game — single-player vs AI with beautiful Italian-themed UI.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.6.1
+  go_router: ^14.6.3
+  flutter_animate: ^4.5.2
+  equatable: ^2.0.5
+  google_fonts: ^8.0.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/cards/
+    - assets/images/ui/
+
+  # Fonts loaded via google_fonts package (no font files needed)
