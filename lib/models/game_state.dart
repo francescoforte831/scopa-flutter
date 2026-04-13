@@ -2,6 +2,29 @@ import 'package:equatable/equatable.dart';
 import 'package:scopa_flutter/models/card_model.dart';
 import 'package:scopa_flutter/models/player_model.dart';
 
+/// AI difficulty levels.
+enum Difficulty {
+  easy,
+  medium,
+  hard;
+
+  String get label {
+    switch (this) {
+      case Difficulty.easy:   return 'Easy';
+      case Difficulty.medium: return 'Medium';
+      case Difficulty.hard:   return 'Hard';
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case Difficulty.easy:   return 'Greedy — captures when possible, otherwise random';
+      case Difficulty.medium: return 'Traditional — classic Italian Scopa strategy';
+      case Difficulty.hard:   return 'Minimax — looks ahead and blocks your best moves';
+    }
+  }
+}
+
 /// All phases the game can be in.
 enum GamePhase {
   /// Cards are being dealt (animation state).
@@ -60,6 +83,7 @@ class GameState extends Equatable {
     required this.phase,
     required this.humanScore,
     required this.aiScore,
+    this.difficulty = Difficulty.medium,
     this.lastAction,
   });
 
@@ -80,6 +104,9 @@ class GameState extends Equatable {
 
   /// Cumulative game score (across all hands) for the AI.
   final int aiScore;
+
+  /// The selected AI difficulty level.
+  final Difficulty difficulty;
 
   /// The most recently completed action, used to trigger UI animations.
   final LastAction? lastAction;
@@ -102,6 +129,7 @@ class GameState extends Equatable {
     GamePhase? phase,
     int? humanScore,
     int? aiScore,
+    Difficulty? difficulty,
     LastAction? lastAction,
     bool clearLastAction = false,
   }) {
@@ -114,6 +142,7 @@ class GameState extends Equatable {
       phase: phase ?? this.phase,
       humanScore: humanScore ?? this.humanScore,
       aiScore: aiScore ?? this.aiScore,
+      difficulty: difficulty ?? this.difficulty,
       lastAction: clearLastAction ? null : (lastAction ?? this.lastAction),
     );
   }
@@ -121,7 +150,7 @@ class GameState extends Equatable {
   @override
   List<Object?> get props => [
     humanPlayer, aiPlayer, tableCards, deck,
-    handNumber, phase, humanScore, aiScore, lastAction,
+    handNumber, phase, humanScore, aiScore, difficulty, lastAction,
   ];
 }
 

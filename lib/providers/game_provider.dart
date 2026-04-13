@@ -41,10 +41,13 @@ class GameNotifier extends StateNotifier<GameState> {
 
   // ── Game lifecycle ────────────────────────────────────────────────────────
 
-  /// Starts a fresh game: resets all scores, deals the first hand.
-  void startNewGame() {
+  /// Starts a fresh game with the selected [difficulty].
+  void startNewGame({Difficulty difficulty = Difficulty.medium}) {
     _lastCaptorId = null;
-    state = _emptyState().copyWith(phase: GamePhase.dealing);
+    state = _emptyState().copyWith(
+      phase: GamePhase.dealing,
+      difficulty: difficulty,
+    );
     _dealHand(resetScores: true);
   }
 
@@ -113,7 +116,11 @@ class GameNotifier extends StateNotifier<GameState> {
     await Future<void>.delayed(kAiThinkDuration);
     if (!mounted || !state.isAiTurn) return;
 
-    final play = _ai.choosePlay(state.aiPlayer.hand, state.tableCards);
+    final play = _ai.choosePlay(
+      state.aiPlayer.hand,
+      state.tableCards,
+      state.difficulty,
+    );
     _processPlay(
       actorId: 'ai',
       card: play.cardToPlay,

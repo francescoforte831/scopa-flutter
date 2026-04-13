@@ -28,9 +28,12 @@
 - **Premium Italian UI** — deep green felt table, gold accents, Cinzel font (Google Fonts), dark navy menu
 - **No image assets required** — fully playable with code-rendered card faces; drop PNGs into `assets/images/cards/` to upgrade
 
-### Stage 2 — Difficulty Levels 🔜
-- Easy / Medium / Hard AI selector
-- Hard uses minimax with depth-limited lookahead
+### Stage 2 — Difficulty Levels ✅
+- **Easy** — greedy AI: captures when possible (random choice), otherwise discards a random card
+- **Medium** — traditional Italian strategy (Stage 1 AI, now the default)
+- **Hard** — minimax with depth-3 lookahead; evaluates score delta, denari advantage, settebello control, and scopa blocking
+- **Difficulty badge** in the HUD so you always know what you're up against
+- **Animated difficulty selector** on the menu with colour-coded buttons (green / gold / red)
 
 ### Stage 3 — Multi-Computer 🔜
 - Play against 1–4 computer opponents

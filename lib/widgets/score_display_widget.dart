@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scopa_flutter/core/theme.dart';
+import 'package:scopa_flutter/models/game_state.dart';
 import 'package:scopa_flutter/providers/game_provider.dart';
 
 /// Top HUD bar showing real-time scope count, captured card count, and hand number.
@@ -28,7 +29,7 @@ class ScoreDisplayWidget extends ConsumerWidget {
               alignLeft: true,
             ),
           ),
-          // Hand counter in the centre.
+          // Hand counter + difficulty badge in the centre.
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -50,6 +51,8 @@ class ScoreDisplayWidget extends ConsumerWidget {
                   fontFamily: 'Cinzel',
                 ),
               ),
+              const SizedBox(height: 2),
+              _DifficultyBadge(difficulty: state.difficulty),
             ],
           ),
           // AI stats.
@@ -146,6 +149,41 @@ class _Stat extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DifficultyBadge extends StatelessWidget {
+  const _DifficultyBadge({required this.difficulty});
+
+  final Difficulty difficulty;
+
+  Color get _color {
+    switch (difficulty) {
+      case Difficulty.easy:   return const Color(0xFF4CAF50);
+      case Difficulty.medium: return kGold;
+      case Difficulty.hard:   return const Color(0xFFEF5350);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      decoration: BoxDecoration(
+        color: _color.withAlpha(30),
+        borderRadius: BorderRadius.circular(3),
+        border: Border.all(color: _color.withAlpha(120), width: 0.8),
+      ),
+      child: Text(
+        difficulty.label.toUpperCase(),
+        style: TextStyle(
+          fontSize: 8,
+          color: _color,
+          letterSpacing: 1,
+          fontFamily: 'Cinzel',
+        ),
+      ),
     );
   }
 }
