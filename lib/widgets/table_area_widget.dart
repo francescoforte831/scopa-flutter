@@ -206,25 +206,31 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
 
                           final delayIdx = isNew ? newCardIndex++ : 0;
 
+                          Widget cardContent = isNew
+                              ? rotatedCard
+                                  .animate(delay: (delayIdx * 80).ms)
+                                  .fadeIn(duration: 250.ms)
+                                  .scale(
+                                    begin: const Offset(0.7, 0.7),
+                                    end: const Offset(1.0, 1.0),
+                                    duration: 250.ms,
+                                    curve: Curves.easeOut,
+                                  )
+                              : rotatedCard;
+
+                          // RepaintBoundary prevents Impeller from trying to
+                          // pass inherited opacity through Transform.rotate,
+                          // which would trigger a validation break.
                           return Positioned(
                             left: x,
                             top: y,
                             width: cardW,
                             height: cardH,
-                            child: SizedBox.expand(
-                              key: key,
-                              child: isNew
-                                  ? rotatedCard
-                                      .animate(
-                                          delay: (delayIdx * 80).ms)
-                                      .fadeIn(duration: 250.ms)
-                                      .scale(
-                                        begin: const Offset(0.7, 0.7),
-                                        end: const Offset(1.0, 1.0),
-                                        duration: 250.ms,
-                                        curve: Curves.easeOut,
-                                      )
-                                  : rotatedCard,
+                            child: RepaintBoundary(
+                              child: SizedBox.expand(
+                                key: key,
+                                child: cardContent,
+                              ),
                             ),
                           );
                         }).toList(),

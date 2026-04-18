@@ -33,7 +33,9 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
   // ── Animation state ───────────────────────────────────────────────────────
   final List<_FlyJob> _flyingCards = [];
-  bool _animating = false;
+  bool _animating = false;        // true while a play animation is running
+  bool _navigating = false;       // true while _navigateToScoring is running
+  bool _pendingNavigation = false; // navigation was requested mid-animation
   ScopaCard? _ghostCard;  // card in hand shown as a ghost while flying
   int _aiHandHidden = 0;  // face-down cards hidden while the AI fly plays
 
@@ -211,6 +213,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
 
     _animating = false;
+    if (_pendingNavigation) _navigateToScoring();
   }
 
   // ── AI play flow ──────────────────────────────────────────────────────────
@@ -312,6 +315,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     }
 
     _animating = false;
+    if (_pendingNavigation) _navigateToScoring();
   }
 
   // ── Other interaction ─────────────────────────────────────────────────────
@@ -372,8 +376,14 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   }
 
   Future<void> _navigateToScoring() async {
-    if (_animating) return;
-    _animating = true;
+    // If a play animation is still running, defer until it completes.
+    if (_animating) {
+      _pendingNavigation = true;
+      return;
+    }
+    if (_navigating) return; // already in progress
+    _navigating = true;
+    _pendingNavigation = false;
 
     final tableCards = List<ScopaCard>.from(ref.read(gameProvider).tableCards);
     final lastCaptorId = ref.read(gameProvider.notifier).lastCaptorId;
@@ -438,7 +448,6 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       await Future.delayed(const Duration(milliseconds: 600));
     }
 
-    _animating = false;
     if (!mounted) return;
     final result = ref.read(gameProvider.notifier).acknowledgeHandEnd();
     context.go('/scoring', extra: result);
