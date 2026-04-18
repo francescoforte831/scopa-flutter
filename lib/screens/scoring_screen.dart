@@ -3,8 +3,11 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:scopa_flutter/core/theme.dart';
+import 'package:scopa_flutter/models/card_model.dart';
 import 'package:scopa_flutter/models/game_state.dart';
+import 'package:scopa_flutter/models/player_model.dart';
 import 'package:scopa_flutter/providers/game_provider.dart';
+import 'package:scopa_flutter/widgets/card_widget.dart';
 
 /// Displays the per-hand scoring breakdown and cumulative game scores.
 class ScoringScreen extends ConsumerWidget {
@@ -24,7 +27,7 @@ class ScoringScreen extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Column(
               children: [
@@ -71,7 +74,23 @@ class ScoringScreen extends ConsumerWidget {
                   highlight: true,
                 ).animate(delay: 800.ms).fadeIn(),
 
-                const Spacer(),
+                const SizedBox(height: 16),
+
+                // ── View captured cards ───────────────────────────────────
+                OutlinedButton.icon(
+                  onPressed: () {
+                    final state = ref.read(gameProvider);
+                    _showCapturedCards(
+                      context,
+                      human: state.humanPlayer,
+                      ai: state.aiPlayer,
+                    );
+                  },
+                  icon: const Icon(Icons.style_outlined, size: 16),
+                  label: const Text('VIEW CAPTURED CARDS'),
+                ).animate(delay: 850.ms).fadeIn(),
+
+                const SizedBox(height: 24),
 
                 // ── Game over banner ──────────────────────────────────────
                 if (result.isGameOver) ...[
@@ -103,6 +122,23 @@ class ScoringScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+
+  void _showCapturedCards(
+    BuildContext context, {
+    required Player human,
+    required Player ai,
+  }) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: kBackgroundDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        side: BorderSide(color: kGold, width: 1),
+      ),
+      builder: (ctx) => _CapturedCardsSheet(human: human, ai: ai),
     );
   }
 
@@ -399,6 +435,150 @@ class _GameOverBanner extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Captured cards bottom sheet ───────────────────────────────────────────────
+
+class _CapturedCardsSheet extends StatefulWidget {
+  const _CapturedCardsSheet({required this.human, required this.ai});
+
+  final Player human;
+  final Player ai;
+
+  @override
+  State<_CapturedCardsSheet> createState() => _CapturedCardsSheetState();
+}
+
+class _CapturedCardsSheetState extends State<_CapturedCardsSheet>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: screenHeight * 0.75),
+      decoration: const BoxDecoration(
+        color: kBackgroundDark,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar.
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: kGold.withAlpha(80),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Title.
+          const Text(
+            'CAPTURED CARDS',
+            style: TextStyle(
+              color: kGold,
+              fontSize: 14,
+              fontFamily: 'Cinzel',
+              fontWeight: FontWeight.bold,
+              letterSpacing: 3,
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Tab bar.
+          TabBar(
+            controller: _tabs,
+            indicatorColor: kGold,
+            labelColor: kGold,
+            unselectedLabelColor: Colors.white38,
+            labelStyle: const TextStyle(
+              fontFamily: 'Cinzel',
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+            tabs: [
+              Tab(text: '${widget.human.name.toUpperCase()} (${widget.human.capturedCount})'),
+              Tab(text: 'COMPUTER (${widget.ai.capturedCount})'),
+            ],
+          ),
+
+          Divider(color: kGold.withAlpha(40), height: 1),
+
+          // Card grids.
+          Flexible(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                _CardGrid(cards: widget.human.captured),
+                _CardGrid(cards: widget.ai.captured),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _CardGrid extends StatelessWidget {
+  const _CardGrid({required this.cards});
+
+  final List<ScopaCard> cards;
+
+  @override
+  Widget build(BuildContext context) {
+    if (cards.isEmpty) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Text(
+            'No cards captured',
+            style: TextStyle(color: Colors.white38, fontSize: 14),
+          ),
+        ),
+      );
+    }
+
+    // Sort: by suit then value for easy reading.
+    final sorted = [...cards]
+      ..sort((a, b) {
+        final suitCmp = a.suit.index.compareTo(b.suit.index);
+        return suitCmp != 0 ? suitCmp : a.value.compareTo(b.value);
+      });
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 10,
+        alignment: WrapAlignment.center,
+        children: sorted
+            .map((card) => CardWidget(card: card, width: 56, height: 84))
+            .toList(),
       ),
     );
   }

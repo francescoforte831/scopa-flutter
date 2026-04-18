@@ -20,13 +20,14 @@
 ### Stage 1 — Single Player vs AI ✅
 - **Complete Scopa rule engine** — full capture logic (single-card priority rule, subset-sum multi-card captures), scopa detection, last-capture sweep
 - **Traditional AI opponent** — prioritises scopa opportunities → settebello → most denari → most cards → lowest discard
-- **Draggable card play** — drag-and-drop from hand to table, or tap to select + tap table card
-- **Multi-capture selection** — bottom sheet picker when multiple valid captures exist
-- **Smooth animations** — card deal stagger, scopa flash overlay, capture feedback (flutter_animate)
+- **Drag-and-drop card play** — drag from hand to table, or tap a hand card to play it immediately (no second tap required)
+- **Multi-capture selection** — scrollable bottom sheet picker when multiple valid captures exist; auto-applies when only one is valid
+- **Auto-discard** — playing a card with no valid captures discards it immediately, no confirmation dialog
 - **Full end-of-hand scoring** — Carte, Denari, Settebello, Primiera, Scope with per-category breakdown
-- **Cumulative game scoring** — first to 11 points wins; game-over screen with result
+- **Cumulative game scoring** — first to 11 points wins; game-over screen with final result
+- **View captured cards** — tap the button on the scoring screen to browse each player's captured pile in a tabbed sheet
 - **Premium Italian UI** — deep green felt table, gold accents, Cinzel font (Google Fonts), dark navy menu
-- **No image assets required** — fully playable with code-rendered card faces; drop PNGs into `assets/images/cards/` to upgrade
+- **Card images** — supports authentic Piacentine PNGs in `assets/images/cards/`; falls back gracefully to code-rendered card faces
 
 ### Stage 2 — Difficulty Levels ✅
 - **Easy** — greedy AI: captures when possible (random choice), otherwise discards a random card
@@ -34,6 +35,18 @@
 - **Hard** — minimax with depth-3 lookahead; evaluates score delta, denari advantage, settebello control, and scopa blocking
 - **Difficulty badge** in the HUD so you always know what you're up against
 - **Animated difficulty selector** on the menu with colour-coded buttons (green / gold / red)
+- **QUIT button** in the HUD centre with confirmation dialog — exit at any point without losing your way back to the menu
+
+### Card Animations ✅
+- **Tap-to-play fly** — tapping a hand card dims it to a ghost and launches a flying copy toward the table edge (700 ms, scale-pulse arc); ghost clears when the card lands
+- **AI card reveal** — when the computer plays, a full-size face-up card flies from the AI hand area to the top edge of the table, pauses for 1.2 s so the move is readable, then resolves
+- **Stable table positions** — each card is assigned a fixed slot when it lands; existing cards never shift or reflow when a new card is added or removed; slight random offset (±6 px) and rotation (±1.7°) give a natural "placed on felt" look
+- **Edge approach** — played cards float to the near edge of the table (bottom for human, top for AI) rather than the centre, so they never obscure cards already on the table
+- **Capture glow** — before sweeping to the pile, all involved cards (played + captured) pulse with a golden glow and scale up to 1.15× over 500 ms
+- **Simultaneous capture sweep** — after the glow, every card flies in parallel from its own position directly to the capturing player's pile (700 ms easeIn); no gather-at-centre phase
+- **End-of-round sweep** — remaining table cards glow and sweep to the last captor's pile before the scoring screen appears
+- **AI hand count** — the face-down card row shrinks the moment the AI's fly animation begins (not only after state commits)
+- **Entrance animation once** — newly dealt cards fade + scale in; cards already present do not re-animate after each turn
 
 ### Stage 3 — Multi-Computer 🔜
 - Play against 1–4 computer opponents
@@ -53,10 +66,10 @@
 | UI Framework | Flutter 3.x |
 | State Management | Riverpod 2.x (StateNotifier) |
 | Navigation | GoRouter 14.x |
-| Animations | flutter_animate 4.x |
+| Animations | flutter_animate 4.x + AnimationController for flying cards |
 | Fonts | Google Fonts — Cinzel |
 | Multiplayer (Stage 4) | Firebase Firestore + Anonymous Auth |
-| AI (Stage 2+) | Minimax with alpha-beta pruning |
+| AI (Stage 2+) | Minimax depth-3 with heuristic evaluation |
 
 ---
 
@@ -66,30 +79,30 @@
 lib/
 ├── main.dart                    # App entry, ProviderScope, orientation lock
 ├── core/
-│   ├── constants.dart           # Game constants, primiera values, durations
+│   ├── constants.dart           # Game constants, primiera values, animation durations
 │   ├── theme.dart               # ScopaTheme — colours, typography, button styles
 │   └── router.dart              # GoRouter: /, /game, /scoring
 ├── models/
 │   ├── card_model.dart          # ScopaCard (40-card Italian deck)
 │   ├── player_model.dart        # Player (hand, captured, scopeCount)
-│   └── game_state.dart          # GameState, GamePhase, LastAction, HandScoringResult
+│   └── game_state.dart          # GameState, GamePhase, Difficulty, LastAction, HandScoringResult
 ├── providers/
-│   ├── game_provider.dart       # GameNotifier — all state transitions
+│   ├── game_provider.dart       # GameNotifier — all state transitions + peekAiPlay/applyAiTurn
 │   └── providers.dart           # Service provider registrations
 ├── services/
 │   ├── deck_service.dart        # Deck creation and shuffle
 │   ├── game_service.dart        # Pure rule functions (captures, scopa, scoring)
-│   └── ai_service.dart          # Traditional AI strategy engine
+│   └── ai_service.dart          # Easy / Medium / Hard AI (minimax depth-3 for Hard)
 ├── screens/
-│   ├── menu_screen.dart         # Animated main menu
-│   ├── game_screen.dart         # Game table, HUD, animation orchestration
-│   └── scoring_screen.dart      # Per-hand breakdown + cumulative scores
+│   ├── menu_screen.dart         # Animated main menu with difficulty selector
+│   ├── game_screen.dart         # Game table, HUD, flying-card animation orchestration
+│   └── scoring_screen.dart      # Per-hand breakdown + cumulative scores + captured cards viewer
 └── widgets/
-    ├── card_widget.dart          # Face-up / face-down card rendering + fallback
-    ├── table_area_widget.dart    # DragTarget, capture picker, table display
-    ├── hand_widget.dart          # Draggable player hand
-    ├── ai_hand_widget.dart       # Face-down AI cards
-    └── score_display_widget.dart # Real-time HUD (scope, cards, game score)
+    ├── card_widget.dart          # Face-up (image + ColoredCardFace fallback) / face-down
+    ├── table_area_widget.dart    # DragTarget, capture picker, table display, card position lookup
+    ├── hand_widget.dart          # Draggable player hand, card position lookup, ghost-card support
+    ├── ai_hand_widget.dart       # Face-down AI cards with hiddenCount for live animation sync
+    └── score_display_widget.dart # Real-time HUD (scope, cards, game score, difficulty badge, quit)
 ```
 
 ---

@@ -58,15 +58,19 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
               // ── Suit icons ─────────────────────────────────────────────
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: ['⬡', '⚔', '♣', '🏆'].asMap().entries.map((e) {
+                children: const [
+                  'assets/images/ui/title_screen_Asso_di_denari.png',
+                  'assets/images/ui/title_screen_Asso_di_coppe.png',
+                  'assets/images/ui/title_screen_Asso_di_spade.png',
+                  'assets/images/ui/title_screen_Asso_di_bastoni.png',
+                ].asMap().entries.map((e) {
                   return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Image.asset(
                       e.value,
-                      style: TextStyle(
-                        fontSize: 28,
-                        color: kGold.withAlpha(180),
-                      ),
+                      width: 64,
+                      height: 64,
+                      fit: BoxFit.contain,
                     )
                         .animate(delay: (e.key * 100 + 500).ms)
                         .fadeIn(duration: 400.ms)

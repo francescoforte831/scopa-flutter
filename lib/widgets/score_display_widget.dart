@@ -6,7 +6,9 @@ import 'package:scopa_flutter/providers/game_provider.dart';
 
 /// Top HUD bar showing real-time scope count, captured card count, and hand number.
 class ScoreDisplayWidget extends ConsumerWidget {
-  const ScoreDisplayWidget({super.key});
+  const ScoreDisplayWidget({super.key, this.onExit});
+
+  final VoidCallback? onExit;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -53,6 +55,10 @@ class ScoreDisplayWidget extends ConsumerWidget {
               ),
               const SizedBox(height: 2),
               _DifficultyBadge(difficulty: state.difficulty),
+              if (onExit != null) ...[
+                const SizedBox(height: 4),
+                _QuitButton(onPressed: onExit!),
+              ],
             ],
           ),
           // AI stats.
@@ -182,6 +188,36 @@ class _DifficultyBadge extends StatelessWidget {
           color: _color,
           letterSpacing: 1,
           fontFamily: 'Cinzel',
+        ),
+      ),
+    );
+  }
+}
+
+class _QuitButton extends StatelessWidget {
+  const _QuitButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: const Color(0xFFB71C1C).withAlpha(60),
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(color: const Color(0xFFEF5350).withAlpha(160), width: 0.8),
+        ),
+        child: const Text(
+          'QUIT',
+          style: TextStyle(
+            fontSize: 8,
+            color: Color(0xFFEF5350),
+            letterSpacing: 1,
+            fontFamily: 'Cinzel',
+          ),
         ),
       ),
     );

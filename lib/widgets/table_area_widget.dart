@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,142 +9,241 @@ import 'package:scopa_flutter/providers/game_provider.dart';
 import 'package:scopa_flutter/services/game_service.dart';
 import 'package:scopa_flutter/widgets/card_widget.dart';
 
-/// The green felt table centre — shows table cards and accepts drops/taps.
-///
-/// Handles capture selection:
-///   • Single valid capture → applied automatically.
-///   • Multiple valid captures → bottom sheet lets player choose.
-///   • No capture → confirms discard.
+/// The green felt table centre — shows table cards and accepts card drops.
 class TableAreaWidget extends ConsumerStatefulWidget {
   const TableAreaWidget({
     super.key,
     required this.onCardPlayed,
-    required this.getSelectedCard,
   });
 
   final void Function(ScopaCard card, List<ScopaCard> captureTarget) onCardPlayed;
 
-  /// Returns the card currently selected in [HandWidget], if any.
-  final ScopaCard? Function() getSelectedCard;
-
   @override
-  ConsumerState<TableAreaWidget> createState() => _TableAreaWidgetState();
+  ConsumerState<TableAreaWidget> createState() => TableAreaWidgetState();
 }
 
-class _TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
-  final _gameService = const GameService();
+class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
+  final Map<ScopaCard, GlobalKey> _cardKeys = {};
+  final _containerKey = GlobalKey();
+  final Set<ScopaCard> _seenCards = {};
+  int? _lastHandNumber;
 
-  // Tracks cards that are animating off the table (capture animation).
-  final Set<ScopaCard> _capturedAnimating = {};
+  // ── Stable slot positioning ──────────────────────────────────────────────
+  final Map<ScopaCard, int> _cardSlots = {};
+  final List<int> _freedSlots = [];
+  int _nextSlot = 0;
+  final Map<int, double> _slotJitterX = {};
+  final Map<int, double> _slotJitterY = {};
+  final Map<int, double> _slotRotation = {};
+  final _rng = Random();
+
+  int _assignSlot(ScopaCard card) {
+    if (_cardSlots.containsKey(card)) return _cardSlots[card]!;
+    final slot = _freedSlots.isNotEmpty ? _freedSlots.removeAt(0) : _nextSlot++;
+    _cardSlots[card] = slot;
+    _slotJitterX.putIfAbsent(slot, () => (_rng.nextDouble() - 0.5) * 12);
+    _slotJitterY.putIfAbsent(slot, () => (_rng.nextDouble() - 0.5) * 8);
+    _slotRotation.putIfAbsent(slot, () => (_rng.nextDouble() - 0.5) * 0.06);
+    return slot;
+  }
+
+  void _cleanupSlots(List<ScopaCard> currentCards) {
+    final toRemove = <ScopaCard>[];
+    for (final card in _cardSlots.keys) {
+      if (!currentCards.contains(card)) toRemove.add(card);
+    }
+    for (final card in toRemove) {
+      final slot = _cardSlots.remove(card)!;
+      _freedSlots.add(slot);
+      _cardKeys.remove(card);
+    }
+    _freedSlots.sort();
+  }
+
+  /// Top-left global offset of [card]'s widget on the table, or null.
+  Offset? cardGlobalOffset(ScopaCard card) {
+    final box =
+        _cardKeys[card]?.currentContext?.findRenderObject() as RenderBox?;
+    return box?.localToGlobal(Offset.zero);
+  }
+
+  /// Global [Rect] of the table container widget, or null if not yet laid out.
+  Rect? get containerBounds {
+    final box =
+        _containerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
+
+  /// Global centre of the table area container.
+  Offset? get tableCenterGlobal {
+    final box =
+        _containerKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return null;
+    final origin = box.localToGlobal(Offset.zero);
+    return origin + Offset(box.size.width / 2, box.size.height / 2);
+  }
+
+  /// The standard card size rendered on the table.
+  Size get cardSize => const Size(68, 102);
 
   @override
   Widget build(BuildContext context) {
     final tableCards = ref.watch(gameProvider.select((s) => s.tableCards));
-    final isPlayerTurn = ref.watch(gameProvider.select((s) => s.isPlayerTurn));
-    final lastAction = ref.watch(gameProvider.select((s) => s.lastAction));
+    final handNumber = ref.watch(gameProvider.select((s) => s.handNumber));
 
-    // Trigger capture animation when lastAction has captured cards.
-    if (lastAction != null && lastAction.captured.isNotEmpty) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _capturedAnimating.clear();
-          });
-        }
-      });
+    if (handNumber != _lastHandNumber) {
+      _seenCards.clear();
+      _cardKeys.clear();
+      _cardSlots.clear();
+      _freedSlots.clear();
+      _nextSlot = 0;
+      _slotJitterX.clear();
+      _slotJitterY.clear();
+      _slotRotation.clear();
+      _lastHandNumber = handNumber;
+    }
+
+    _cleanupSlots(tableCards);
+    for (final card in tableCards) {
+      _assignSlot(card);
     }
 
     return DragTarget<ScopaCard>(
+      onWillAcceptWithDetails: (_) => true,
       onAcceptWithDetails: (details) {
         _handleCardPlayed(details.data, tableCards, context);
       },
       builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
-        return GestureDetector(
-          onTap: () {
-            final selected = widget.getSelectedCard();
-            if (selected != null && isPlayerTurn) {
-              _handleCardPlayed(selected, tableCards, context);
-            }
-          },
-          child: Container(
-            margin: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isHovering ? kTableGreenLight : kTableGreen,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isHovering ? kGold : kGold.withAlpha(100),
-                width: isHovering ? 2.5 : 1.5,
+        final hovering = candidateData.isNotEmpty;
+        return AnimatedContainer(
+          key: _containerKey,
+          duration: const Duration(milliseconds: 150),
+          margin: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: hovering ? kTableGreenLight : kTableGreen,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: hovering ? kGold : kGold.withAlpha(100),
+              width: hovering ? 2.5 : 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(80),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
               ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withAlpha(80),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Stack(
-              children: [
-                // Empty table hint.
-                if (tableCards.isEmpty)
-                  const Center(
-                    child: Text(
-                      'SCOPA!',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.white24,
-                        letterSpacing: 4,
-                        fontFamily: 'Cinzel',
-                      ),
-                    ),
-                  ),
-                // Table cards.
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      alignment: WrapAlignment.center,
-                      children: tableCards.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final card = entry.value;
-                        return GestureDetector(
-                          onTap: () {
-                            final selected = widget.getSelectedCard();
-                            if (selected != null && isPlayerTurn) {
-                              _handleCardPlayedWithTarget(
-                                selected, card, tableCards, context,
-                              );
-                            }
-                          },
-                          child: CardWidget(key: ValueKey(card), card: card)
-                              .animate(delay: (index * 80).ms)
-                              .fadeIn(duration: 250.ms)
-                              .scale(
-                                begin: const Offset(0.7, 0.7),
-                                end: const Offset(1.0, 1.0),
-                                duration: 250.ms,
-                                curve: Curves.easeOut,
-                              ),
-                        );
-                      }).toList(),
+            ],
+          ),
+          child: Stack(
+            children: [
+              if (tableCards.isEmpty)
+                const Center(
+                  child: Text(
+                    'SCOPA!',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.white24,
+                      letterSpacing: 4,
+                      fontFamily: 'Cinzel',
                     ),
                   ),
                 ),
-                // Hover glow overlay.
-                if (isHovering)
-                  Positioned.fill(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(16),
-                        color: kGold.withAlpha(20),
-                      ),
+
+              Positioned.fill(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      const cardW = 68.0;
+                      const cardH = 102.0;
+                      const spacingX = 14.0;
+                      const spacingY = 14.0;
+
+                      final maxCols = ((constraints.maxWidth + spacingX) /
+                              (cardW + spacingX))
+                          .floor()
+                          .clamp(1, 10);
+
+                      int maxSlotUsed = 0;
+                      for (final card in tableCards) {
+                        final s = _cardSlots[card] ?? 0;
+                        if (s > maxSlotUsed) maxSlotUsed = s;
+                      }
+                      final totalRows =
+                          tableCards.isEmpty ? 0 : (maxSlotUsed ~/ maxCols) + 1;
+
+                      final gridW =
+                          maxCols * cardW + (maxCols - 1) * spacingX;
+                      final gridH = totalRows * cardH +
+                          (totalRows > 1 ? (totalRows - 1) * spacingY : 0);
+                      final ox = (constraints.maxWidth - gridW) / 2;
+                      final oy = max(
+                          0.0, (constraints.maxHeight - gridH) / 2);
+
+                      var newCardIndex = 0;
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: tableCards.map((card) {
+                          final slot = _cardSlots[card]!;
+                          final col = slot % maxCols;
+                          final row = slot ~/ maxCols;
+                          final key =
+                              _cardKeys.putIfAbsent(card, GlobalKey.new);
+                          final isNew = _seenCards.add(card);
+
+                          final x = ox +
+                              col * (cardW + spacingX) +
+                              _slotJitterX[slot]!;
+                          final y = oy +
+                              row * (cardH + spacingY) +
+                              _slotJitterY[slot]!;
+
+                          final rotatedCard = Transform.rotate(
+                            angle: _slotRotation[slot]!,
+                            child: CardWidget(card: card),
+                          );
+
+                          final delayIdx = isNew ? newCardIndex++ : 0;
+
+                          return Positioned(
+                            left: x,
+                            top: y,
+                            width: cardW,
+                            height: cardH,
+                            child: SizedBox.expand(
+                              key: key,
+                              child: isNew
+                                  ? rotatedCard
+                                      .animate(
+                                          delay: (delayIdx * 80).ms)
+                                      .fadeIn(duration: 250.ms)
+                                      .scale(
+                                        begin: const Offset(0.7, 0.7),
+                                        end: const Offset(1.0, 1.0),
+                                        duration: 250.ms,
+                                        curve: Curves.easeOut,
+                                      )
+                                  : rotatedCard,
+                            ),
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ),
+              ),
+
+              if (hovering)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      color: kGold.withAlpha(20),
                     ),
                   ),
-              ],
-            ),
+                ),
+            ],
           ),
         );
       },
@@ -154,34 +255,13 @@ class _TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
     List<ScopaCard> tableCards,
     BuildContext context,
   ) {
-    final captures = _gameService.findAllCaptures(card, tableCards);
-
+    final captures = const GameService().findAllCaptures(card, tableCards);
     if (captures.isEmpty) {
-      _confirmDiscard(card, tableCards, context);
+      widget.onCardPlayed(card, const []);
     } else if (captures.length == 1) {
       widget.onCardPlayed(card, captures.first);
     } else {
       _showCaptureOptions(card, captures, context);
-    }
-  }
-
-  void _handleCardPlayedWithTarget(
-    ScopaCard card,
-    ScopaCard tappedTableCard,
-    List<ScopaCard> tableCards,
-    BuildContext context,
-  ) {
-    final captures = _gameService.findAllCaptures(card, tableCards);
-    // Find captures that include the tapped table card.
-    final matching = captures.where((c) => c.contains(tappedTableCard)).toList();
-
-    if (matching.isEmpty) {
-      // Tapped card is not part of any valid capture — show all options.
-      _handleCardPlayed(card, tableCards, context);
-    } else if (matching.length == 1) {
-      widget.onCardPlayed(card, matching.first);
-    } else {
-      _showCaptureOptions(card, matching, context);
     }
   }
 
@@ -199,47 +279,8 @@ class _TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
       ),
       builder: (ctx) => _CapturePickerSheet(card: card, captures: captures),
     );
-    if (chosen != null && mounted) {
+    if (chosen != null) {
       widget.onCardPlayed(card, chosen);
-    }
-  }
-
-  Future<void> _confirmDiscard(
-    ScopaCard card,
-    List<ScopaCard> tableCards,
-    BuildContext context,
-  ) async {
-    if (tableCards.isEmpty) {
-      // Nothing to capture anyway — discard directly.
-      widget.onCardPlayed(card, const []);
-      return;
-    }
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: kBackgroundDark,
-        title: Text(
-          'Discard ${card.displayLabel}${card.suitLabel}?',
-          style: const TextStyle(color: kGold, fontFamily: 'Cinzel'),
-        ),
-        content: const Text(
-          'No capture available. Place this card on the table?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Discard'),
-          ),
-        ],
-      ),
-    );
-    if ((confirmed ?? false) && mounted) {
-      widget.onCardPlayed(card, const []);
     }
   }
 }
@@ -247,73 +288,101 @@ class _TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
 // ── Capture picker bottom sheet ───────────────────────────────────────────────
 
 class _CapturePickerSheet extends StatelessWidget {
-  const _CapturePickerSheet({
-    required this.card,
-    required this.captures,
-  });
+  const _CapturePickerSheet({required this.card, required this.captures});
 
   final ScopaCard card;
   final List<List<ScopaCard>> captures;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Choose capture with ${card.displayLabel}${card.suitLabel}',
-            style: const TextStyle(
-              color: kGold,
-              fontSize: 16,
-              fontFamily: 'Cinzel',
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ...captures.asMap().entries.map((entry) {
-            final captureSet = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: InkWell(
-                onTap: () => Navigator.pop(context, captureSet),
-                borderRadius: BorderRadius.circular(8),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: kGold.withAlpha(100)),
-                    borderRadius: BorderRadius.circular(8),
-                    color: kGold.withAlpha(15),
-                  ),
-                  child: Row(
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CardWidget(card: card, width: 44, height: 66),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.arrow_forward_ios,
-                          color: kGold, size: 14),
-                      const SizedBox(width: 12),
-                      Wrap(
-                        spacing: 8,
-                        children: captureSet.map((c) {
-                          return Text(
-                            '${c.displayLabel}${c.suitLabel}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                            ),
-                          );
-                        }).toList(),
+                      const Text(
+                        'CHOOSE CAPTURE',
+                        style: TextStyle(
+                          color: kGold,
+                          fontSize: 13,
+                          fontFamily: 'Cinzel',
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                      Text(
+                        '${captures.length} options available',
+                        style: TextStyle(
+                          color: Colors.white.withAlpha(120),
+                          fontSize: 11,
+                        ),
                       ),
                     ],
                   ),
                 ),
-              ),
-            );
-          }),
-        ],
+              ],
+            ),
+            const SizedBox(height: 16),
+            Divider(color: kGold.withAlpha(60)),
+            const SizedBox(height: 12),
+            ...captures.map((captureSet) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context, captureSet),
+                    borderRadius: BorderRadius.circular(12),
+                    splashColor: kGold.withAlpha(30),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: kGold.withAlpha(80)),
+                        borderRadius: BorderRadius.circular(12),
+                        color: kGold.withAlpha(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: captureSet
+                                  .map((c) => CardWidget(
+                                        key: ValueKey(c),
+                                        card: c,
+                                        width: 52,
+                                        height: 78,
+                                      ))
+                                  .toList(),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: kGold.withAlpha(30),
+                              shape: BoxShape.circle,
+                            ),
+                            child:
+                                const Icon(Icons.check, color: kGold, size: 16),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                )),
+            const SizedBox(height: 4),
+          ],
+        ),
       ),
     );
   }

@@ -4,7 +4,7 @@ import 'package:scopa_flutter/models/card_model.dart';
 import 'package:scopa_flutter/models/game_state.dart';
 import 'package:scopa_flutter/models/player_model.dart';
 import 'package:scopa_flutter/providers/providers.dart';
-import 'package:scopa_flutter/services/ai_service.dart';
+import 'package:scopa_flutter/services/ai_service.dart' show AiPlay, AiService;
 import 'package:scopa_flutter/services/deck_service.dart';
 import 'package:scopa_flutter/services/game_service.dart';
 
@@ -38,6 +38,9 @@ class GameNotifier extends StateNotifier<GameState> {
 
   /// ID of the last player to have captured cards (for end-of-hand table sweep).
   String? _lastCaptorId;
+
+  /// Exposes the last captor so the UI can animate end-of-round sweeps.
+  String? get lastCaptorId => _lastCaptorId;
 
   // ── Game lifecycle ────────────────────────────────────────────────────────
 
@@ -108,19 +111,20 @@ class GameNotifier extends StateNotifier<GameState> {
     _processPlay(actorId: 'human', card: card, target: target);
   }
 
-  /// Called by GameScreen (via ref.listen) when phase == aiTurn.
-  ///
-  /// Runs after a brief artificial delay to give the impression of thought.
-  Future<void> resolveAiTurn() async {
-    if (!state.isAiTurn) return;
-    await Future<void>.delayed(kAiThinkDuration);
-    if (!mounted || !state.isAiTurn) return;
-
-    final play = _ai.choosePlay(
+  /// Returns the AI's chosen play without applying it. GameScreen uses this
+  /// to run the fly animation before committing the move.
+  AiPlay peekAiPlay() {
+    return _ai.choosePlay(
       state.aiPlayer.hand,
       state.tableCards,
       state.difficulty,
     );
+  }
+
+  /// Commits the AI's play to the game state. Call after the fly animation
+  /// has finished (paired with [peekAiPlay]).
+  void applyAiTurn(AiPlay play) {
+    if (!state.isAiTurn) return;
     _processPlay(
       actorId: 'ai',
       card: play.cardToPlay,
