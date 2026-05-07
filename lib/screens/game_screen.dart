@@ -133,61 +133,53 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     final cardOffset = _handKey.currentState?.cardGlobalOffset(card);
     final tableCardSize = _tableKey.currentState?.cardSize ?? const Size(68, 102);
-    final approachPos = _humanApproachLocal(tableCardSize);
-    final fromLocal = cardOffset != null ? _toLocal(cardOffset) : approachPos;
-
-    // Snapshot table-card positions before any state change.
-    final captureOffsets = <ScopaCard, Offset>{};
-    for (final c in captureTarget) {
-      final gPos = _tableKey.currentState?.cardGlobalOffset(c);
-      if (gPos != null) captureOffsets[c] = _toLocal(gPos);
-    }
+    final fromLocal = cardOffset != null
+        ? _toLocal(cardOffset)
+        : _humanApproachLocal(tableCardSize);
 
     setState(() => _ghostCard = card);
 
-    // ── Phase 1: played card flies from hand to the table edge (400 ms). ──────
-    final job1 = _FlyJob(
-      card: card, from: fromLocal, to: approachPos,
-      size: tableCardSize, durationMs: 400,
-    );
-    await _fly(job1);
-    // job1 parked at table edge.
-
     if (captureTarget.isEmpty) {
-      // ── Discard: fly card from the edge all the way to its assigned slot. ──
-      // Suppress entrance animation AND hide the slot card while the overlay
-      // is in flight — this prevents a duplicate from showing under the fly card.
+      // ── Discard: commit state immediately, then fly straight from hand to slot.
+      // No stop at the table edge — suppress the entrance animation and hide the
+      // slot card while the overlay is in flight so there is no duplicate.
       _tableKey.currentState?.suppressEntrance(card);
       _tableKey.currentState?.hideCard(card);
       setState(() => _ghostCard = null);
       ref.read(gameProvider.notifier).humanPlayCard(card, captureTarget);
 
-      // One frame for the table layout to settle.
+      // One frame for the table layout to settle before reading the slot position.
       await Future.delayed(const Duration(milliseconds: 50));
       if (!mounted) return;
 
       final slotGlobal = _tableKey.currentState?.cardGlobalOffset(card);
       if (slotGlobal != null) {
         final slotLocal = _toLocal(slotGlobal);
-        final jobLand = _FlyJob(
-          card: card, from: approachPos, to: slotLocal,
-          size: tableCardSize, durationMs: 180, curve: Curves.easeOut,
+        final jobFly = _FlyJob(
+          card: card, from: fromLocal, to: slotLocal,
+          size: tableCardSize, durationMs: 500, curve: Curves.easeOut,
         );
-        // Atomically swap job1 → jobLand so there is no visual gap.
-        setState(() {
-          _flyingCards.remove(job1);
-          _flyingCards.add(jobLand);
-        });
-        await jobLand.done;
-        // Reveal the slot card then remove the overlay in the same frame.
+        await _fly(jobFly);
         _tableKey.currentState?.revealCard(card);
-        _removeFly(jobLand);
-      } else {
-        _tableKey.currentState?.revealCard(card);
-        setState(() => _flyingCards.remove(job1));
+        _removeFly(jobFly);
       }
     } else {
-      // ── Capture: brief pause so the play is readable, then glow + sweep. ──
+      // ── Capture: fly to the table edge, brief pause, glow, sweep. ──────────
+      final approachPos = _humanApproachLocal(tableCardSize);
+
+      // Snapshot table-card positions before any state change.
+      final captureOffsets = <ScopaCard, Offset>{};
+      for (final c in captureTarget) {
+        final gPos = _tableKey.currentState?.cardGlobalOffset(c);
+        if (gPos != null) captureOffsets[c] = _toLocal(gPos);
+      }
+
+      final job1 = _FlyJob(
+        card: card, from: fromLocal, to: approachPos,
+        size: tableCardSize, durationMs: 400,
+      );
+      await _fly(job1);
+
       await Future.delayed(const Duration(milliseconds: 150));
       if (!mounted) return;
 
@@ -456,6 +448,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
       await Future.delayed(const Duration(milliseconds: 200));
       if (!mounted) return;
+
+      // Hide the real table cards so only the fly overlays are visible during
+      // the glow and sweep — prevents clone cards sitting on the table.
+      for (final c in tableCards) {
+        _tableKey.currentState?.hideCard(c);
+      }
 
       // Glow phase — remaining cards pulse before sweeping to last captor.
       final glowJobs = tableCards
