@@ -155,9 +155,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
     if (captureTarget.isEmpty) {
       // ── Discard: fly card from the edge all the way to its assigned slot. ──
-      // Suppress the table entrance animation, commit state, then wait one
-      // frame so the slot is laid out, then fly there.
+      // Suppress entrance animation AND hide the slot card while the overlay
+      // is in flight — this prevents a duplicate from showing under the fly card.
       _tableKey.currentState?.suppressEntrance(card);
+      _tableKey.currentState?.hideCard(card);
       setState(() => _ghostCard = null);
       ref.read(gameProvider.notifier).humanPlayCard(card, captureTarget);
 
@@ -178,8 +179,11 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _flyingCards.add(jobLand);
         });
         await jobLand.done;
+        // Reveal the slot card then remove the overlay in the same frame.
+        _tableKey.currentState?.revealCard(card);
         _removeFly(jobLand);
       } else {
+        _tableKey.currentState?.revealCard(card);
         setState(() => _flyingCards.remove(job1));
       }
     } else {
@@ -213,12 +217,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       final pileTarget = _humanPileLocal(screenSize);
       final sweepJobs = <_FlyJob>[
         _FlyJob(card: card, from: approachPos, to: pileTarget,
-            size: tableCardSize, durationMs: 400, curve: Curves.easeIn),
+            size: tableCardSize, durationMs: 560, curve: Curves.easeIn),
         ...captureTarget.map((c) => _FlyJob(
               card: c,
               from: captureOffsets[c] ?? approachPos,
               to: pileTarget,
-              size: tableCardSize, durationMs: 400, curve: Curves.easeIn,
+              size: tableCardSize, durationMs: 560, curve: Curves.easeIn,
             )),
       ];
 
@@ -286,9 +290,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
     setState(() => _aiHandHidden = 0);
 
     if ((play.captureTarget as List<ScopaCard>).isEmpty) {
-      // ── Discard: suppress entrance, commit state, fly to actual slot. ──────
+      // ── Discard: suppress entrance, hide slot card, commit, fly to slot. ──
       final played = play.cardToPlay as ScopaCard;
       _tableKey.currentState?.suppressEntrance(played);
+      _tableKey.currentState?.hideCard(played);
       ref.read(gameProvider.notifier).applyAiTurn(play);
 
       // One frame for the table layout to settle.
@@ -307,8 +312,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
           _flyingCards.add(jobLand);
         });
         await jobLand.done;
+        _tableKey.currentState?.revealCard(played);
         _removeFly(jobLand);
       } else {
+        _tableKey.currentState?.revealCard(played);
         setState(() => _flyingCards.remove(job1));
       }
     } else {
@@ -341,12 +348,12 @@ class _GameScreenState extends ConsumerState<GameScreen> {
       final pileTarget = _aiPileLocal(screenSize);
       final sweepJobs = <_FlyJob>[
         _FlyJob(card: played, from: approachPos, to: pileTarget,
-            size: tableCardSize, durationMs: 400, curve: Curves.easeIn),
+            size: tableCardSize, durationMs: 560, curve: Curves.easeIn),
         ...captured.map((c) => _FlyJob(
               card: c,
               from: captureOffsets[c] ?? approachPos,
               to: pileTarget,
-              size: tableCardSize, durationMs: 400, curve: Curves.easeIn,
+              size: tableCardSize, durationMs: 560, curve: Curves.easeIn,
             )),
       ];
 
@@ -477,7 +484,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
                 from: cardOffsets[c] ?? centerFallback,
                 to: pileTarget,
                 size: tableCardSize,
-                durationMs: 400,
+                durationMs: 560,
                 curve: Curves.easeIn,
               ))
           .toList();

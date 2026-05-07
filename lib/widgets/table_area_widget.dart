@@ -26,6 +26,7 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
   final Map<ScopaCard, GlobalKey> _cardKeys = {};
   final _containerKey = GlobalKey();
   final Set<ScopaCard> _seenCards = {};
+  final Set<ScopaCard> _hiddenCards = {};
   int? _lastHandNumber;
 
   // ── Stable slot positioning ──────────────────────────────────────────────
@@ -56,6 +57,7 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
       final slot = _cardSlots.remove(card)!;
       _freedSlots.add(slot);
       _cardKeys.remove(card);
+      _hiddenCards.remove(card);
     }
     _freedSlots.sort();
   }
@@ -82,6 +84,17 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
     _seenCards.add(card);
   }
 
+  /// Render [card] with opacity 0 so the fly overlay is the only visible copy.
+  /// Call [revealCard] once the fly animation lands to make it visible again.
+  void hideCard(ScopaCard card) {
+    setState(() => _hiddenCards.add(card));
+  }
+
+  /// Make [card] visible again after the fly overlay has been removed.
+  void revealCard(ScopaCard card) {
+    setState(() => _hiddenCards.remove(card));
+  }
+
   /// Global centre of the table area container.
   Offset? get tableCenterGlobal {
     final box =
@@ -104,6 +117,7 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
       _cardKeys.clear();
       _cardSlots.clear();
       _freedSlots.clear();
+      _hiddenCards.clear();
       _nextSlot = 0;
       _slotJitterX.clear();
       _slotJitterY.clear();
@@ -234,9 +248,12 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
                             width: cardW,
                             height: cardH,
                             child: RepaintBoundary(
-                              child: SizedBox.expand(
-                                key: key,
-                                child: cardContent,
+                              child: Opacity(
+                                opacity: _hiddenCards.contains(card) ? 0.0 : 1.0,
+                                child: SizedBox.expand(
+                                  key: key,
+                                  child: cardContent,
+                                ),
                               ),
                             ),
                           );
