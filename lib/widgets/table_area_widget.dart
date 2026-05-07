@@ -75,6 +75,13 @@ class TableAreaWidgetState extends ConsumerState<TableAreaWidget> {
     return box.localToGlobal(Offset.zero) & box.size;
   }
 
+  /// Pre-mark [card] as already seen so no entrance animation plays when
+  /// the card's state is committed — used when a fly overlay handles the
+  /// visual transition instead.
+  void suppressEntrance(ScopaCard card) {
+    _seenCards.add(card);
+  }
+
   /// Global centre of the table area container.
   Offset? get tableCenterGlobal {
     final box =
