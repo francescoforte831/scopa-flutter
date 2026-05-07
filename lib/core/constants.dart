@@ -37,7 +37,7 @@ const Map<int, String> kValueNames = {
 };
 
 /// Animation durations.
-const Duration kCardFlyDuration = Duration(milliseconds: 500);
+const Duration kCardFlyDuration = Duration(milliseconds: 300);
 const Duration kScopaFlashDuration = Duration(milliseconds: 900);
-const Duration kAiThinkDuration = Duration(milliseconds: 900);
+const Duration kAiThinkDuration = Duration(milliseconds: 500);
 const Duration kDealStaggerDelay = Duration(milliseconds: 100);

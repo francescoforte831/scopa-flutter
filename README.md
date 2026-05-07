@@ -38,13 +38,13 @@
 - **QUIT button** in the HUD centre with confirmation dialog — exit at any point without losing your way back to the menu
 
 ### Card Animations ✅
-- **Tap-to-play fly** — tapping a hand card dims it to a ghost and launches a flying copy toward the table edge (700 ms, scale-pulse arc); ghost clears when the card lands
-- **AI card reveal** — when the computer plays, a full-size face-up card flies from the AI hand area to the top edge of the table, pauses for 1.2 s so the move is readable, then resolves
+- **Tap-to-play fly (discard)** — tapping a hand card with no capture commits state immediately and launches a single smooth arc (~500 ms easeOut) straight from the hand to the card's assigned table slot; no intermediate stop
+- **Tap-to-play fly (capture)** — when a capture is available the card flies to the near table edge (400 ms), pauses briefly so the move is readable, then the glow + sweep sequence runs
+- **AI card reveal** — when the computer plays, a full-size face-up card flies from the AI hand area to the top edge of the table, pauses for 0.6 s so the move is readable, then resolves
 - **Stable table positions** — each card is assigned a fixed slot when it lands; existing cards never shift or reflow when a new card is added or removed; slight random offset (±6 px) and rotation (±1.7°) give a natural "placed on felt" look
-- **Edge approach** — played cards float to the near edge of the table (bottom for human, top for AI) rather than the centre, so they never obscure cards already on the table
-- **Capture glow** — before sweeping to the pile, all involved cards (played + captured) pulse with a golden glow and scale up to 1.15× over 500 ms
-- **Simultaneous capture sweep** — after the glow, every card flies in parallel from its own position directly to the capturing player's pile (700 ms easeIn); no gather-at-centre phase
-- **End-of-round sweep** — remaining table cards glow and sweep to the last captor's pile before the scoring screen appears
+- **Capture glow** — before sweeping to the pile, all involved cards (played + captured) pulse with a golden glow and scale up to 1.15× over 300 ms
+- **Simultaneous capture sweep** — after the glow, every card flies in parallel from its own position directly to the capturing player's pile (560 ms easeIn); no gather-at-centre phase
+- **End-of-round sweep** — remaining table cards glow and sweep cleanly to the last captor's pile before the scoring screen appears; real card widgets are hidden during the animation so no clone cards are left behind
 - **AI hand count** — the face-down card row shrinks the moment the AI's fly animation begins (not only after state commits)
 - **Entrance animation once** — newly dealt cards fade + scale in; cards already present do not re-animate after each turn
 
