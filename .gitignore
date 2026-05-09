@@ -5,6 +5,7 @@
 *.swp
 .buildlog/
 .history
+.claude/
 
 # IDE - IntelliJ / Android Studio
 .idea/workspace.xml
