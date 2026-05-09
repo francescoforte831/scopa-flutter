@@ -1,11 +1,15 @@
 # Miscellaneous
 *.class
-*.lock
 *.log
 *.pyc
 *.swp
 .buildlog/
 .history
+
+# IDE - IntelliJ / Android Studio
+.idea/workspace.xml
+.idea/libraries/
+*.iml
 
 
 
