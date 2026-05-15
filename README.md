@@ -29,6 +29,7 @@
 - **View captured cards** — tap the button on the scoring screen to browse each player's captured pile in a tabbed sheet
 - **Premium Italian UI** — deep green felt table, gold accents, Cinzel font (Google Fonts), dark navy menu
 - **Card images** — supports authentic Piacentine PNGs in `assets/images/cards/`; falls back gracefully to code-rendered card faces
+- **Custom app icon** — generated at all required iOS sizes via `flutter_launcher_icons`
 
 ### Stage 2 — Difficulty Levels ✅
 - **Easy** — greedy AI: captures when possible (random choice), otherwise discards a random card
