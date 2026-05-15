@@ -2,6 +2,7 @@
 
 > A beautiful, production-quality implementation of the classic Italian card game **Scopa**, built with Flutter.
 
+![Version](https://img.shields.io/badge/Version-1.0.0-gold)
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
 ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)
 ![Riverpod](https://img.shields.io/badge/Riverpod-2.x-20232A)
@@ -24,7 +25,7 @@
 - **Multi-capture selection** — scrollable bottom sheet picker when multiple valid captures exist; auto-applies when only one is valid
 - **Auto-discard** — playing a card with no valid captures discards it immediately, no confirmation dialog
 - **Full end-of-hand scoring** — Carte, Denari, Settebello, Primiera, Scope with per-category breakdown
-- **Cumulative game scoring** — first to 11 points wins; game-over screen with final result
+- **Cumulative game scoring** — reach the target score first to win; game-over screen with final result
 - **View captured cards** — tap the button on the scoring screen to browse each player's captured pile in a tabbed sheet
 - **Premium Italian UI** — deep green felt table, gold accents, Cinzel font (Google Fonts), dark navy menu
 - **Card images** — supports authentic Piacentine PNGs in `assets/images/cards/`; falls back gracefully to code-rendered card faces
@@ -36,6 +37,16 @@
 - **Difficulty badge** in the HUD so you always know what you're up against
 - **Animated difficulty selector** on the menu with colour-coded buttons (green / gold / red)
 - **QUIT button** in the HUD centre with confirmation dialog — exit at any point without losing your way back to the menu
+
+### Stage 2 — Gameplay Depth (Beta Feedback) ✅
+- **Configurable winning score** — choose 11, 16, or 21 points from the main menu before each game
+- **Overtime instead of draws** — when both players reach the winning score in the same hand with equal totals, the game continues until one player pulls ahead; the scoring screen shows a "PAREGGIO — SI CONTINUA!" (overtime) banner
+- **No false scopa on the final capture** — the SCOPA! animation and bonus point are correctly suppressed when the last play of a hand clears the table (standard Italian rule)
+- **Richer hand-end stats** — cards captured, coins captured, and primiera score shown inline with each scoring row; "—" for primiera if a player is missing a suit
+- **Alternating first player** — who plays first rotates every hand; on the very first hand a random draw is made and an animated "YOU GO FIRST / COMPUTER GOES FIRST" overlay is shown with a "sorteggio casuale" (random draw) subtitle
+- **How to Play** — "HOW TO PLAY" button on the main menu opens a scrollable rules sheet covering the deck, turn rules, Scopa, and all scoring categories in Italian-themed style
+- **Fixed playing area** — the table stays centred regardless of how many cards remain in each player's hand; hand widgets reserve constant height throughout the hand
+- **Scoring screen layout** — title and column headers pinned at top; only the five category rows scroll (on very small devices); totals, captured-cards button, result banner, and action button are all always visible without scrolling
 
 ### Card Animations ✅
 - **Tap-to-play fly (discard)** — tapping a hand card with no capture commits state immediately and launches a single smooth arc (~500 ms easeOut) straight from the hand to the card's assigned table slot; no intermediate stop
@@ -94,9 +105,9 @@ lib/
 │   ├── game_service.dart        # Pure rule functions (captures, scopa, scoring)
 │   └── ai_service.dart          # Easy / Medium / Hard AI (minimax depth-3 for Hard)
 ├── screens/
-│   ├── menu_screen.dart         # Animated main menu with difficulty selector
-│   ├── game_screen.dart         # Game table, HUD, flying-card animation orchestration
-│   └── scoring_screen.dart      # Per-hand breakdown + cumulative scores + captured cards viewer
+│   ├── menu_screen.dart         # Animated main menu with difficulty + winning-score selectors + how-to-play sheet
+│   ├── game_screen.dart         # Game table, HUD, flying-card animations, first-player overlay
+│   └── scoring_screen.dart      # Per-hand breakdown + inline stats + pinned totals + overtime/game-over banners
 └── widgets/
     ├── card_widget.dart          # Face-up (image + ColoredCardFace fallback) / face-down
     ├── table_area_widget.dart    # DragTarget, capture picker, table display, card position lookup
@@ -161,10 +172,12 @@ To add authentic Neapolitan/Piacentine card art:
 - **40-card deck**: Asso (1) through Re (10) in 4 suits — Coppe, Denari, Spade, Bastoni
 - **Capture logic**: match a single table card by value, OR sum any combination of table cards to your card's value
 - **Single-card priority**: if a direct match exists, multi-card combinations are not allowed
-- **Scopa**: capturing all table cards in one play earns a bonus point (not awarded on the final capture of a hand)
+- **Scopa**: capturing all table cards in one play earns a bonus point; the bonus is **not** awarded on the final capture of a hand (standard Italian rule), and no SCOPA! animation fires
 - **Re-deal rule**: if 3+ of the initial 4 table cards share a suit, the hand is re-dealt
+- **Alternating deal**: who plays first rotates every hand; the first-hand starter is chosen at random
 - **Scoring**: Carte · Denari · Settebello (7♦) · Primiera · Scope
 - **Primiera**: best per-suit card (7=21, 6=18, A=16, 5=15, 4=14, 3=13, 2=12, face=10); player missing any suit cannot win
+- **Win condition**: configurable target (11 / 16 / 21 points); if both players hit the target in the same hand with equal totals, the game enters **overtime** — play continues hand-by-hand until one player leads; there is no draw
 
 ---
 
