@@ -83,6 +83,8 @@ class GameState extends Equatable {
     required this.phase,
     required this.humanScore,
     required this.aiScore,
+    required this.winningScore,
+    required this.firstPlayerId,
     this.difficulty = Difficulty.medium,
     this.lastAction,
   });
@@ -104,6 +106,12 @@ class GameState extends Equatable {
 
   /// Cumulative game score (across all hands) for the AI.
   final int aiScore;
+
+  /// Points needed to win the game (chosen by the player: 11, 16, or 21).
+  final int winningScore;
+
+  /// 'human' or 'ai' — whoever plays first in the current hand.
+  final String firstPlayerId;
 
   /// The selected AI difficulty level.
   final Difficulty difficulty;
@@ -129,6 +137,8 @@ class GameState extends Equatable {
     GamePhase? phase,
     int? humanScore,
     int? aiScore,
+    int? winningScore,
+    String? firstPlayerId,
     Difficulty? difficulty,
     LastAction? lastAction,
     bool clearLastAction = false,
@@ -142,6 +152,8 @@ class GameState extends Equatable {
       phase: phase ?? this.phase,
       humanScore: humanScore ?? this.humanScore,
       aiScore: aiScore ?? this.aiScore,
+      winningScore: winningScore ?? this.winningScore,
+      firstPlayerId: firstPlayerId ?? this.firstPlayerId,
       difficulty: difficulty ?? this.difficulty,
       lastAction: clearLastAction ? null : (lastAction ?? this.lastAction),
     );
@@ -150,7 +162,8 @@ class GameState extends Equatable {
   @override
   List<Object?> get props => [
     humanPlayer, aiPlayer, tableCards, deck,
-    handNumber, phase, humanScore, aiScore, difficulty, lastAction,
+    handNumber, phase, humanScore, aiScore,
+    winningScore, firstPlayerId, difficulty, lastAction,
   ];
 }
 
@@ -173,7 +186,14 @@ class HandScoringResult extends Equatable {
     required this.aiHandTotal,
     required this.humanGameTotal,
     required this.aiGameTotal,
+    required this.humanCapturedCount,
+    required this.aiCapturedCount,
+    required this.humanDenariCount,
+    required this.aiDenariCount,
+    required this.humanPrimieraScore,
+    required this.aiPrimieraScore,
     required this.isGameOver,
+    required this.isOvertime,
     this.winner,
   });
 
@@ -197,7 +217,21 @@ class HandScoringResult extends Equatable {
   final int humanGameTotal;
   final int aiGameTotal;
 
+  /// Raw stats for display (not scoring points).
+  final int humanCapturedCount;
+  final int aiCapturedCount;
+  final int humanDenariCount;
+  final int aiDenariCount;
+
+  /// Numeric primiera score per player (-1 if player is missing a suit).
+  final int humanPrimieraScore;
+  final int aiPrimieraScore;
+
   final bool isGameOver;
+
+  /// True when both players are at or above the winning score but tied —
+  /// game continues with overtime hands until someone pulls ahead.
+  final bool isOvertime;
 
   /// 'human', 'ai', or null if game is still in progress.
   final String? winner;
@@ -207,6 +241,8 @@ class HandScoringResult extends Equatable {
     humanCarte, humanDenari, humanSettebello, humanPrimiera, humanScope,
     aiCarte, aiDenari, aiSettebello, aiPrimiera, aiScope,
     humanHandTotal, aiHandTotal, humanGameTotal, aiGameTotal,
-    isGameOver, winner,
+    humanCapturedCount, aiCapturedCount, humanDenariCount, aiDenariCount,
+    humanPrimieraScore, aiPrimieraScore,
+    isGameOver, isOvertime, winner,
   ];
 }

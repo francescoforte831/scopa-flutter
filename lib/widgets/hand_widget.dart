@@ -55,7 +55,7 @@ class HandWidgetState extends ConsumerState<HandWidget> {
       _lastHandNumber = handNumber;
     }
 
-    if (hand.isEmpty) return const SizedBox(height: 90);
+    if (hand.isEmpty) return const SizedBox(height: 122); // 102 card + 10*2 padding — keeps table centred
 
     return Container(
       color: Colors.black26,
