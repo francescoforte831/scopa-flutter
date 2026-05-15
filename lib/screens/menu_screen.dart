@@ -247,7 +247,7 @@ class _MenuScreenState extends ConsumerState<MenuScreen> {
 
               const SizedBox(height: 8),
               Text(
-                'v1.0 · Beta',
+                'v1.0.0+2 · Beta',
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withAlpha(60),

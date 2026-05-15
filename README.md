@@ -2,7 +2,7 @@
 
 > A beautiful, production-quality implementation of the classic Italian card game **Scopa**, built with Flutter.
 
-![Version](https://img.shields.io/badge/Version-1.0.0-gold)
+![Version](https://img.shields.io/badge/Version-1.0.0%2B2-gold)
 ![Flutter](https://img.shields.io/badge/Flutter-3.x-02569B?logo=flutter)
 ![Dart](https://img.shields.io/badge/Dart-3.x-0175C2?logo=dart)
 ![Riverpod](https://img.shields.io/badge/Riverpod-2.x-20232A)
