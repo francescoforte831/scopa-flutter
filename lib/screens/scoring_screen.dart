@@ -27,57 +27,63 @@ class ScoringScreen extends ConsumerWidget {
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
-              children: [
-                const SizedBox(height: 24),
+          child: Column(
+            children: [
+              // ── Title — always visible ────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                child: Column(
+                  children: [
+                    Text(
+                      result.isGameOver ? 'GAME OVER' : 'FINE MANO',
+                      style: kHeadingStyle.copyWith(fontSize: 26, letterSpacing: 4),
+                    ).animate().fadeIn(duration: 400.ms),
+                    const SizedBox(height: 8),
+                    Divider(color: kGold.withAlpha(80)),
+                    const SizedBox(height: 4),
+                    _HeaderRow().animate(delay: 100.ms).fadeIn(duration: 300.ms),
+                  ],
+                ),
+              ),
 
-                // ── Title ─────────────────────────────────────────────────
-                Text(
-                  result.isGameOver ? 'GAME OVER' : 'HAND SCORED',
-                  style: kHeadingStyle.copyWith(fontSize: 26, letterSpacing: 4),
-                ).animate().fadeIn(duration: 400.ms),
+              // ── Score rows — scrollable on very small screens ─────────
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 8),
+                  child: Column(
+                    children: _buildRows(result),
+                  ),
+                ),
+              ),
 
-                const SizedBox(height: 4),
-                Divider(color: kGold.withAlpha(80)),
-                const SizedBox(height: 16),
+              // ── Totals — always visible ───────────────────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                child: Column(
+                  children: [
+                    Divider(color: kGold.withAlpha(80)),
+                    const SizedBox(height: 4),
+                    _TotalRow(
+                      label: 'THIS HAND',
+                      humanValue: result.humanHandTotal,
+                      aiValue: result.aiHandTotal,
+                    ).animate(delay: 620.ms).fadeIn(),
+                    const SizedBox(height: 4),
+                    _TotalRow(
+                      label: 'GAME TOTAL',
+                      humanValue: result.humanGameTotal,
+                      aiValue: result.aiGameTotal,
+                      highlight: true,
+                    ).animate(delay: 700.ms).fadeIn(),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
 
-                // ── Column headers ────────────────────────────────────────
-                _HeaderRow()
-                    .animate(delay: 100.ms)
-                    .fadeIn(duration: 300.ms),
-
-                const SizedBox(height: 8),
-
-                // ── Score rows ────────────────────────────────────────────
-                ..._buildRows(result),
-
-                const SizedBox(height: 12),
-                Divider(color: kGold.withAlpha(80)),
-                const SizedBox(height: 8),
-
-                // ── Hand totals ───────────────────────────────────────────
-                _TotalRow(
-                  label: 'THIS HAND',
-                  humanValue: result.humanHandTotal,
-                  aiValue: result.aiHandTotal,
-                ).animate(delay: 700.ms).fadeIn(),
-
-                const SizedBox(height: 4),
-
-                // ── Game totals ───────────────────────────────────────────
-                _TotalRow(
-                  label: 'GAME TOTAL',
-                  humanValue: result.humanGameTotal,
-                  aiValue: result.aiGameTotal,
-                  highlight: true,
-                ).animate(delay: 800.ms).fadeIn(),
-
-                const SizedBox(height: 16),
-
-                // ── View captured cards ───────────────────────────────────
-                OutlinedButton.icon(
+              // ── View captured cards — always visible ──────────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
+                child: OutlinedButton.icon(
                   onPressed: () {
                     final state = ref.read(gameProvider);
                     _showCapturedCards(
@@ -88,37 +94,55 @@ class ScoringScreen extends ConsumerWidget {
                   },
                   icon: const Icon(Icons.style_outlined, size: 16),
                   label: const Text('VIEW CAPTURED CARDS'),
-                ).animate(delay: 850.ms).fadeIn(),
+                ).animate(delay: 780.ms).fadeIn(),
+              ),
 
-                const SizedBox(height: 24),
+              // ── Overtime / game-over banner — always visible ──────────
+              if (result.isOvertime)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: _OvertimeBanner(result: result)
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.9, 0.9),
+                        duration: 350.ms,
+                        curve: Curves.elasticOut,
+                      )
+                      .fadeIn(duration: 250.ms),
+                ),
+              if (result.isGameOver)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                  child: _GameOverBanner(result: result)
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.9, 0.9),
+                        duration: 350.ms,
+                        curve: Curves.elasticOut,
+                      )
+                      .fadeIn(duration: 250.ms),
+                ),
 
-                // ── Game over banner ──────────────────────────────────────
-                if (result.isGameOver) ...[
-                  _GameOverBanner(result: result)
-                      .animate(delay: 900.ms)
-                      .scale(begin: const Offset(0.8, 0.8), curve: Curves.elasticOut)
-                      .fadeIn(),
-                  const SizedBox(height: 20),
-                ],
-
-                // ── Action buttons ────────────────────────────────────────
-                if (result.isGameOver)
-                  ElevatedButton(
-                    onPressed: () => context.go('/'),
-                    child: const Text('BACK TO MENU'),
-                  ).animate(delay: 1000.ms).fadeIn()
-                else
-                  ElevatedButton(
-                    onPressed: () {
-                      ref.read(gameProvider.notifier).startNewHand();
-                      context.go('/game');
-                    },
-                    child: const Text('NEXT HAND'),
-                  ).animate(delay: 900.ms).fadeIn(),
-
-                const SizedBox(height: 24),
-              ],
-            ),
+              // ── Action button — always visible at bottom ──────────────
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: result.isGameOver
+                      ? ElevatedButton(
+                          onPressed: () => context.go('/'),
+                          child: const Text('BACK TO MENU'),
+                        ).animate(delay: 900.ms).fadeIn()
+                      : ElevatedButton(
+                          onPressed: () {
+                            ref.read(gameProvider.notifier).startNewHand();
+                            context.go('/game');
+                          },
+                          child: const Text('NEXT HAND'),
+                        ).animate(delay: 840.ms).fadeIn(),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -143,12 +167,17 @@ class ScoringScreen extends ConsumerWidget {
   }
 
   List<Widget> _buildRows(HandScoringResult r) {
-    final rows = [
+    final humanPrim = r.humanPrimieraScore >= 0 ? '${r.humanPrimieraScore}' : '—';
+    final aiPrim = r.aiPrimieraScore >= 0 ? '${r.aiPrimieraScore}' : '—';
+
+    return [
       _ScoreRow(
         label: 'CARTE',
         sublabel: 'Most cards',
         humanValue: r.humanCarte,
         aiValue: r.aiCarte,
+        humanStat: '${r.humanCapturedCount} cards',
+        aiStat: '${r.aiCapturedCount} cards',
         delay: 150,
       ),
       _ScoreRow(
@@ -156,6 +185,8 @@ class ScoringScreen extends ConsumerWidget {
         sublabel: 'Most coins',
         humanValue: r.humanDenari,
         aiValue: r.aiDenari,
+        humanStat: '${r.humanDenariCount} denari',
+        aiStat: '${r.aiDenariCount} denari',
         delay: 250,
       ),
       _ScoreRow(
@@ -170,6 +201,8 @@ class ScoringScreen extends ConsumerWidget {
         sublabel: 'Best hand',
         humanValue: r.humanPrimiera,
         aiValue: r.aiPrimiera,
+        humanStat: humanPrim,
+        aiStat: aiPrim,
         delay: 450,
       ),
       _ScoreRow(
@@ -180,7 +213,6 @@ class ScoringScreen extends ConsumerWidget {
         delay: 550,
       ),
     ];
-    return rows;
   }
 }
 
@@ -230,6 +262,8 @@ class _ScoreRow extends StatelessWidget {
     required this.humanValue,
     required this.aiValue,
     required this.delay,
+    this.humanStat,
+    this.aiStat,
   });
 
   final String label;
@@ -237,6 +271,10 @@ class _ScoreRow extends StatelessWidget {
   final int humanValue;
   final int aiValue;
   final int delay;
+
+  /// Optional raw-count shown below the point score (e.g. "22 cards").
+  final String? humanStat;
+  final String? aiStat;
 
   @override
   Widget build(BuildContext context) {
@@ -258,14 +296,25 @@ class _ScoreRow extends StatelessWidget {
                       border: Border.all(color: kGold.withAlpha(100)),
                     )
                   : null,
-              child: Text(
-                '$humanValue',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: humanWins ? kGold : Colors.white54,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$humanValue',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: humanWins ? kGold : Colors.white54,
+                    ),
+                  ),
+                  if (humanStat != null)
+                    Text(
+                      humanStat!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 9, color: Colors.white38),
+                    ),
+                ],
               ),
             ),
           ),
@@ -303,14 +352,25 @@ class _ScoreRow extends StatelessWidget {
                       border: Border.all(color: Colors.red.withAlpha(80)),
                     )
                   : null,
-              child: Text(
-                '$aiValue',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: aiWins ? Colors.redAccent : Colors.white54,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '$aiValue',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: aiWins ? Colors.redAccent : Colors.white54,
+                    ),
+                  ),
+                  if (aiStat != null)
+                    Text(
+                      aiStat!,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 9, color: Colors.white38),
+                    ),
+                ],
               ),
             ),
           ),
@@ -381,6 +441,46 @@ class _TotalRow extends StatelessWidget {
   }
 }
 
+class _OvertimeBanner extends StatelessWidget {
+  const _OvertimeBanner({required this.result});
+
+  final HandScoringResult result;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.amber.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber, width: 1.5),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'PAREGGIO — SI CONTINUA!',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Colors.amber,
+              fontFamily: 'Cinzel',
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Both players tied at ${result.humanGameTotal} — play another hand',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: Colors.white54),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _GameOverBanner extends StatelessWidget {
   const _GameOverBanner({required this.result});
 
@@ -389,39 +489,26 @@ class _GameOverBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final humanWon = result.winner == 'human';
-    final isDraw = result.winner == 'draw';
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
       decoration: BoxDecoration(
-        color: humanWon
-            ? kGold.withAlpha(30)
-            : isDraw
-                ? Colors.white.withAlpha(15)
-                : Colors.red.withAlpha(20),
+        color: humanWon ? kGold.withAlpha(30) : Colors.red.withAlpha(20),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: humanWon
-              ? kGold
-              : isDraw
-                  ? Colors.white38
-                  : Colors.redAccent,
+          color: humanWon ? kGold : Colors.redAccent,
           width: 1.5,
         ),
       ),
       child: Column(
         children: [
           Text(
-            isDraw
-                ? '🤝 DRAW!'
-                : humanWon
-                    ? '🏆 YOU WIN!'
-                    : '💀 YOU LOSE',
+            humanWon ? '🏆 YOU WIN!' : '💀 YOU LOSE',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: humanWon ? kGold : isDraw ? Colors.white : Colors.redAccent,
+              color: humanWon ? kGold : Colors.redAccent,
               fontFamily: 'Cinzel',
               letterSpacing: 2,
             ),
@@ -429,10 +516,7 @@ class _GameOverBanner extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             '${result.humanGameTotal} – ${result.aiGameTotal}',
-            style: const TextStyle(
-              fontSize: 16,
-              color: Colors.white70,
-            ),
+            style: const TextStyle(fontSize: 16, color: Colors.white70),
           ),
         ],
       ),

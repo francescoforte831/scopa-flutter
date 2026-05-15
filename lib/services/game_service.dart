@@ -126,16 +126,18 @@ class GameService {
     final newHumanTotal = humanGameScore + humanHandTotal;
     final newAiTotal = aiGameScore + aiHandTotal;
 
-    final gameOver = newHumanTotal >= winningScore || newAiTotal >= winningScore;
+    // Game ends only when at least one player has reached the target AND
+    // they are not tied. A tie at or above the winning score pushes overtime.
+    final humanAtGoal = newHumanTotal >= winningScore;
+    final aiAtGoal = newAiTotal >= winningScore;
+    final atLeastOneAtGoal = humanAtGoal || aiAtGoal;
+    final tied = newHumanTotal == newAiTotal;
+    final gameOver = atLeastOneAtGoal && !tied;
+    final isOvertime = atLeastOneAtGoal && tied;
+
     String? winner;
     if (gameOver) {
-      if (newHumanTotal > newAiTotal) {
-        winner = 'human';
-      } else if (newAiTotal > newHumanTotal) {
-        winner = 'ai';
-      } else {
-        winner = 'draw';
-      }
+      winner = newHumanTotal > newAiTotal ? 'human' : 'ai';
     }
 
     return HandScoringResult(
@@ -153,7 +155,14 @@ class GameService {
       aiHandTotal: aiHandTotal,
       humanGameTotal: newHumanTotal,
       aiGameTotal: newAiTotal,
+      humanCapturedCount: human.capturedCount,
+      aiCapturedCount: ai.capturedCount,
+      humanDenariCount: human.denariCount,
+      aiDenariCount: ai.denariCount,
+      humanPrimieraScore: humanPrimScore,
+      aiPrimieraScore: aiPrimScore,
       isGameOver: gameOver,
+      isOvertime: isOvertime,
       winner: winner,
     );
   }

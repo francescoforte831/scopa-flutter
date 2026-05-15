@@ -39,7 +39,7 @@ class AiHandWidgetState extends ConsumerState<AiHandWidget> {
         (aiHand.length - widget.hiddenCount).clamp(0, aiHand.length);
 
     if (visibleCount == 0) {
-      return const SizedBox(height: 70);
+      return const SizedBox(height: 94); // 78 card + 8*2 padding — keeps table centred
     }
 
     return Padding(

@@ -42,8 +42,46 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // ── Other UI state ────────────────────────────────────────────────────────
   bool _showScopaOverlay = false;
   String _scopaActorName = '';
+  bool _showFirstPlayerOverlay = false;
+  bool _firstPlayerIsHuman = false;
 
   final _gameService = const GameService();
+
+  @override
+  void initState() {
+    super.initState();
+    // ref.listen only fires on *transitions*. startNewGame/startNewHand set the
+    // phase synchronously before navigation, so the listener never sees the
+    // initial dealing→playerTurn/aiTurn transition. Handle it here instead.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final gs = ref.read(gameProvider);
+      final isFirstHand = gs.handNumber == 1 && gs.lastAction == null;
+
+      if (isFirstHand) {
+        // Show the first-player overlay for the full duration, then resume.
+        _showFirstPlayerThenResume(gs.phase, gs.firstPlayerId == 'human');
+      } else if (gs.phase == GamePhase.aiTurn) {
+        // Subsequent hand, AI goes first — drive the AI turn immediately.
+        _runAiTurn(context);
+      }
+    });
+  }
+
+  /// Shows the first-player overlay, blocks all interaction, then resumes
+  /// the game (running the AI if it goes first).
+  Future<void> _showFirstPlayerThenResume(GamePhase phase, bool isHuman) async {
+    setState(() {
+      _showFirstPlayerOverlay = true;
+      _firstPlayerIsHuman = isHuman;
+    });
+    await Future.delayed(const Duration(milliseconds: 2200));
+    if (!mounted) return;
+    setState(() => _showFirstPlayerOverlay = false);
+    if (phase == GamePhase.aiTurn) {
+      _runAiTurn(context);
+    }
+  }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -102,6 +140,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // ── Human play flow ───────────────────────────────────────────────────────
 
   Future<void> _onHandCardTapped(ScopaCard card, BuildContext context) async {
+    if (_showFirstPlayerOverlay) return;
     if (!ref.read(gameProvider).isPlayerTurn) return;
     if (_animating) return;
 
@@ -367,6 +406,7 @@ class _GameScreenState extends ConsumerState<GameScreen> {
   // ── Other interaction ─────────────────────────────────────────────────────
 
   void _onCardPlayed(ScopaCard card, List<ScopaCard> captureTarget) {
+    if (_showFirstPlayerOverlay) return;
     if (!ref.read(gameProvider).isPlayerTurn) return;
     ref.read(gameProvider.notifier).humanPlayCard(card, captureTarget);
   }
@@ -629,6 +669,10 @@ class _GameScreenState extends ConsumerState<GameScreen> {
 
             // ── Scopa overlay ─────────────────────────────────────────────────
             if (_showScopaOverlay) _ScopaOverlay(actorName: _scopaActorName),
+
+            // ── First-player overlay (round 1 only) ───────────────────────────
+            if (_showFirstPlayerOverlay)
+              _FirstPlayerOverlay(isHuman: _firstPlayerIsHuman),
           ],
         ),
       ),
@@ -809,6 +853,72 @@ class _ScopaOverlay extends StatelessWidget {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── First-player overlay ──────────────────────────────────────────────────────
+
+class _FirstPlayerOverlay extends StatelessWidget {
+  const _FirstPlayerOverlay({required this.isHuman});
+
+  final bool isHuman;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isHuman ? 'YOU GO FIRST' : 'COMPUTER GOES FIRST';
+    final color = isHuman ? kGold : Colors.lightBlueAccent;
+
+    return Positioned.fill(
+      // AbsorbPointer blocks all touch events from reaching widgets below.
+      child: AbsorbPointer(
+        child: Container(
+          color: Colors.black.withAlpha(210),
+          child: Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 28),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D1B2A),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: color, width: 1.5),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      color: color,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      fontFamily: 'Cinzel',
+                      letterSpacing: 2,
+                    ),
+                  )
+                      .animate()
+                      .scale(
+                        begin: const Offset(0.6, 0.6),
+                        end: const Offset(1.0, 1.0),
+                        duration: 350.ms,
+                        curve: Curves.elasticOut,
+                      )
+                      .fadeIn(duration: 250.ms),
+                  const SizedBox(height: 8),
+                  Text(
+                    'sorteggio casuale',
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(140),
+                      fontSize: 11,
+                      letterSpacing: 1.5,
+                      fontFamily: 'Cinzel',
+                    ),
+                  ).animate(delay: 200.ms).fadeIn(),
+                ],
+              ),
+            ).animate().fadeIn(duration: 300.ms),
+          ),
         ),
       ),
     );

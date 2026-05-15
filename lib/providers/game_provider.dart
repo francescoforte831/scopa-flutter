@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scopa_flutter/core/constants.dart';
 import 'package:scopa_flutter/models/card_model.dart';
@@ -44,12 +46,16 @@ class GameNotifier extends StateNotifier<GameState> {
 
   // ── Game lifecycle ────────────────────────────────────────────────────────
 
-  /// Starts a fresh game with the selected [difficulty].
-  void startNewGame({Difficulty difficulty = Difficulty.medium}) {
+  /// Starts a fresh game with the selected [difficulty] and [winningScore].
+  void startNewGame({
+    Difficulty difficulty = Difficulty.medium,
+    int winningScore = kWinningScore,
+  }) {
     _lastCaptorId = null;
     state = _emptyState().copyWith(
       phase: GamePhase.dealing,
       difficulty: difficulty,
+      winningScore: winningScore,
     );
     _dealHand(resetScores: true);
   }
@@ -84,7 +90,7 @@ class GameNotifier extends StateNotifier<GameState> {
       ai: ai,
       humanGameScore: state.humanScore,
       aiGameScore: state.aiScore,
-      winningScore: kWinningScore,
+      winningScore: state.winningScore,
     );
 
     state = state.copyWith(
@@ -211,7 +217,10 @@ class GameNotifier extends StateNotifier<GameState> {
         deck = List.of(aiDeal.remaining);
         ai = ai.copyWith(hand: List.of(aiDeal.dealt));
 
-        nextPhase = GamePhase.playerTurn;
+        // Resume with whichever player goes first in this hand.
+        nextPhase = state.firstPlayerId == 'human'
+            ? GamePhase.playerTurn
+            : GamePhase.aiTurn;
       }
     } else {
       nextPhase = isHuman ? GamePhase.aiTurn : GamePhase.playerTurn;
@@ -266,13 +275,22 @@ class GameNotifier extends StateNotifier<GameState> {
       scopeCount: 0,
     );
 
+    // First hand: random first player. Subsequent hands: alternate.
+    final String firstPlayerId;
+    if (resetScores) {
+      firstPlayerId = Random().nextBool() ? 'human' : 'ai';
+    } else {
+      firstPlayerId = state.firstPlayerId == 'human' ? 'ai' : 'human';
+    }
+
     state = state.copyWith(
       humanPlayer: human,
       aiPlayer: ai,
       tableCards: tableCards,
       deck: deck,
       handNumber: resetScores ? 1 : state.handNumber + 1,
-      phase: GamePhase.playerTurn,
+      firstPlayerId: firstPlayerId,
+      phase: firstPlayerId == 'human' ? GamePhase.playerTurn : GamePhase.aiTurn,
       humanScore: resetScores ? 0 : state.humanScore,
       aiScore: resetScores ? 0 : state.aiScore,
       clearLastAction: true,
@@ -288,5 +306,7 @@ class GameNotifier extends StateNotifier<GameState> {
         phase: GamePhase.playerTurn,
         humanScore: 0,
         aiScore: 0,
+        winningScore: kWinningScore,
+        firstPlayerId: 'human',
       );
 }
